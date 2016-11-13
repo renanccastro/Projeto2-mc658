@@ -1,0 +1,10 @@
+algorithm  : EXACT
+instance   : in/gr_kinder4
+elapsedTime: 0 s
+timeLimit  : 30 s
+optimal    : Yes
+n          : 4
+lowerBound : 4
+upperBound : 4
+k          : 4
+nodes      : 4.3 3.4 2.2 1.1

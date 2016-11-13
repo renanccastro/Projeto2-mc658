@@ -1,0 +1,10 @@
+algorithm  : HEURISTIC
+instance   : in/gr_kinder4
+elapsedTime: 0 s
+timeLimit  : 30 s
+optimal    : No
+n          : 4
+lowerBound : 1
+upperBound : 4
+k          : 4
+nodes      : 4.1 3.2 2.3 1.4
