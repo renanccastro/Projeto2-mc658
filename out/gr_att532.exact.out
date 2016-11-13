@@ -1,6 +1,6 @@
 algorithm  : EXACT
 instance   : in/gr_att532
-elapsedTime: 469 s
+elapsedTime: 675 s
 timeLimit  : 30 s
 optimal    : No
 n          : 532

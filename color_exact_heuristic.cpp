@@ -91,8 +91,8 @@ int colorExact(GraphData& gd, NodeIntMap& color, int& lowerBound, int& upperBoun
     }
   }
   try {
-    model.update(); // run update to use model inserted variables
     if (timeLimit >= 0) model.getEnv().set(GRB_DoubleParam_TimeLimit,timeLimit);
+    model.update(); // run update to use model inserted variables
     model.optimize();
 
     map <int, int> colorMap;
@@ -193,58 +193,65 @@ int colorHeuristic(GraphData& gd, NodeIntMap& color, int& lowerBound, int& upper
     if (timeLimit >= 0) model.getEnv().set(GRB_DoubleParam_TimeLimit,remainingTime);
     // Solve the RELAXED PROBLEM
     model.optimize();
-    for (int iter = 0; iter < 1000; ++iter)
+    lowerBound = model.get(GRB_DoubleAttr_ObjVal);
+    bool shouldTry = true;
+    for (int iter = 0; iter < 1000 && shouldTry; ++iter)
     {
-
-      // create a list of fractional variables, sorted in order of
-      // increasing distance from the relaxation solution to the nearest
-      // integer value
-
-      deque<GRBVar> fractional;
-      for (size_t j = 0; j < y.size(); ++j)
-      {
-        double sol = fabs(y[j].get(GRB_DoubleAttr_X));
-        if (fabs(sol - floor(sol + 0.5)) > 1e-5)
-        {
-          fractional.push_back(y[j]);
+        while(true){
+            // create a list of fractional variables, sorted in order of
+            // increasing distance from the relaxation solution to the nearest
+            // integer value
+            deque<GRBVar> fractional;
+            for (NodeIt v(gd.g); v!=INVALID; ++v) {
+                for (size_t j = 0; j < y.size(); j++)
+                {
+                    double sol = fabs(x[v][j].get(GRB_DoubleAttr_X));
+                    if (fabs(sol - floor(sol + 0.5)) > 1e-5)
+                    {
+                        fractional.push_back(x[v][j]);
+                    }
+                }
+                
+            }
+            
+            cout << "Iteration " << iter << ", obj " <<
+            model.get(GRB_DoubleAttr_ObjVal) << ", fractional " <<
+            fractional.size() << endl;
+            
+            if (fractional.size() == 0)
+            {
+                shouldTry = false;
+                cout << "Found feasible solution - objective " <<
+                model.get(GRB_DoubleAttr_ObjVal) << endl;
+                break;
+            }
+            
+            int randomIndex = rand() % fractional.size();
+            GRBVar v = fractional[randomIndex];
+            v.set(GRB_DoubleAttr_LB, 1.0);
+            v.set(GRB_DoubleAttr_UB, 1.0);
+            
+            model.optimize();
+            
+            // Check optimization result
+            // if relaxation is infeasible
+            if (model.get(GRB_IntAttr_Status) != GRB_OPTIMAL)
+            {
+                // Reset lower and upper bound for each variable
+                for (NodeIt v(gd.g); v!=INVALID; ++v) {
+                    for (size_t j = 0; j < y.size(); j++)
+                    {
+                        GRBVar var = x[v][j];
+                        var.set(GRB_DoubleAttr_LB, 0.0);
+                        var.set(GRB_DoubleAttr_UB, 1.0);
+                    }
+                    
+                }
+                cout << "Relaxation is infeasible" << endl;
+                break;
+            }
         }
-      }
-
-      cout << "Iteration " << iter << ", obj " <<
-      model.get(GRB_DoubleAttr_ObjVal) << ", fractional " <<
-      fractional.size() << endl;
-
-      if (fractional.size() == 0)
-      {
-        cout << "Found feasible solution - objective " <<
-        model.get(GRB_DoubleAttr_ObjVal) << endl;
-        break;
-      }
-
-      // Fix the first quartile to the nearest integer value
-      sort(fractional.begin(), fractional.end(), vcomp);
-      int nfix = fractional.size() / 4;
-      nfix = (nfix > 1) ? nfix : 1;
-      for (int i = 0; i < nfix; ++i)
-      {
-        GRBVar v = fractional[i];
-        double fixval = floor(v.get(GRB_DoubleAttr_X) + 0.5);
-        v.set(GRB_DoubleAttr_LB, fixval);
-        v.set(GRB_DoubleAttr_UB, fixval);
-        cout << "  Fix " << v.get(GRB_StringAttr_VarName) << " to " <<
-        fixval << " ( rel " << v.get(GRB_DoubleAttr_X) << " )" <<
-        endl;
-      }
-
-      model.optimize();
-
-      // Check optimization result
-
-      if (model.get(GRB_IntAttr_Status) != GRB_OPTIMAL)
-      {
-        cout << "Relaxation is infeasible" << endl;
-        break;
-      }
+        
     }
 
     map <int, int> colorMap;
@@ -257,15 +264,15 @@ int colorHeuristic(GraphData& gd, NodeIntMap& color, int& lowerBound, int& upper
     }
     for (NodeIt v(gd.g); v!=INVALID; ++v) {
       for (int i =0; i<nodeCount;i++){
-        if(BinaryIsOne(x[v][i].get(GRB_DoubleAttr_X))){
+//          cout << "x_" << gd.vname[v] << "_" << i << ":" << x[v][i].get(GRB_DoubleAttr_X) << endl;
+        if(x[v][i].get(GRB_DoubleAttr_X)>0){
           color[v] = colorMap[i];
         }
       }
     }
-    lowerBound = model.get(GRB_DoubleAttr_ObjBound);
-    upperBound = model.get(GRB_DoubleAttr_ObjVal);
-  } catch (...){
-
+      upperBound = model.get(GRB_DoubleAttr_ObjVal);
+  } catch(GRBException e){
+      cout << e.getMessage() << endl;
   }
   return 0;
 }
